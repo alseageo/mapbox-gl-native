@@ -131,6 +131,10 @@ public:
      */
     void resume();
 
+    void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback);
+
+    void startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback);
+
     // For testing only.
     void put(const Resource&, const Response&);
 

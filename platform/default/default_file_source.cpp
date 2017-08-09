@@ -144,8 +144,26 @@ public:
         offlineDatabase.setOfflineMapboxTileCountLimit(limit);
     }
 
+    void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
+        try {
+            offlineDatabase.put(resource, response);
+            callback({});
+        } catch (...) {
+            callback(std::current_exception());
+        }
+    }
+
     void put(const Resource& resource, const Response& response) {
         offlineDatabase.put(resource, response);
+    }
+
+    void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response&  response, std::function<void (std::exception_ptr)> callback) {
+        try {
+            offlineDatabase.putRegionResource(regionID, resource, response);
+            callback({});
+        } catch (...) {
+            callback(std::current_exception());
+        }
     }
 
 private:
@@ -269,6 +287,14 @@ void DefaultFileSource::pause() {
 
 void DefaultFileSource::resume() {
     thread->resume();
+}
+
+void DefaultFileSource::startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
+    thread->invoke(&Impl::startPut, resource, response, callback);
+}
+
+void DefaultFileSource::startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
+    thread->invoke(&Impl::startPutRegionResource, region.getID(), resource, response, callback);
 }
 
 // For testing only:
