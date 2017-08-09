@@ -3,6 +3,8 @@
 
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/offline.hpp>
+#include <mbgl/storage/resource.hpp>
+#include <mbgl/storage/response.hpp>
 #include <jni/jni.hpp>
 
 #include "../file_source.hpp"
@@ -48,6 +50,19 @@ public:
         static void registerNative(jni::JNIEnv&);
     };
 
+    class PutTileCallback {
+    public:
+        static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$PutTileCallback"; }
+
+        static void onError(jni::JNIEnv&, jni::Object<OfflineManager::PutTileCallback>, std::exception_ptr);
+
+        static void onComplete(jni::JNIEnv&, jni::Object<OfflineManager::PutTileCallback>);
+
+        static jni::Class<OfflineManager::PutTileCallback> javaClass;
+
+        static void registerNative(jni::JNIEnv&);
+    };
+
     static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager"; };
 
     static jni::Class<OfflineManager> javaClass;
@@ -58,6 +73,15 @@ public:
     ~OfflineManager();
 
     void setOfflineMapboxTileCountLimit(jni::JNIEnv&, jni::jlong limit);
+
+    void putTileWithUrlTemplate(jni::JNIEnv& env_,
+                                jni::String jUrlTemplate,
+                                jni::jfloat pixelRatio,
+                                jni::jint x,
+                                jni::jint y,
+                                jni::jint z,
+                                jni::Array<jni::jbyte> jData_,
+                                jni::Object<PutTileCallback> callback_);
 
     void listOfflineRegions(jni::JNIEnv&, jni::Object<FileSource>, jni::Object<ListOfflineRegionsCallback> callback);
 
