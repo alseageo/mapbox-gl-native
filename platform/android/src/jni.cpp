@@ -28,6 +28,8 @@
 #include <mbgl/platform/event.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/storage/network_status.hpp>
+#include <mbgl/storage/resource.hpp>
+#include <mbgl/storage/response.hpp>
 #include <mbgl/util/exception.hpp>
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/string.hpp>
@@ -136,6 +138,9 @@ jni::jfieldID* offlineRegionDefinitionPixelRatioId = nullptr;
 
 jni::jmethodID* createOnCreateMethodId = nullptr;
 jni::jmethodID* createOnErrorMethodId = nullptr;
+
+jni::jmethodID* putOnCompleteMethodId = nullptr;
+jni::jmethodID* putOnErrorMethodId = nullptr;
 
 jni::jmethodID* updateMetadataOnUpdateMethodId = nullptr;
 jni::jmethodID* updateMetadataOnErrorMethodId = nullptr;
@@ -1398,6 +1403,44 @@ void setOfflineMapboxTileCountLimit(JNIEnv *env, jni::jobject* obj, jlong defaul
     defaultFileSource->setOfflineMapboxTileCountLimit(limit);
 }
 
+void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* jUrlTemplate, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte>* jData, jni::jobject* putCallback) {
+    std::string urlTemplate = std_string_from_jstring(env, jUrlTemplate);
+
+    // converting jData to correct type
+    std::size_t length = jni::GetArrayLength(*env, *jData);
+    char *buffer = new char[length];
+    jni::GetArrayRegion(*env, *jData, 0, length, reinterpret_cast<jbyte*>(buffer));
+
+    mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
+    mbgl::Response response = mbgl::Response();
+    response.data = std::make_shared<std::string>(buffer, length);
+    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
+
+    // Makes sure the callback doesn't get GC'ed
+    putCallback = jni::NewGlobalRef(*env, putCallback).release();
+
+    defaultFileSource->startPut(resource, response, [putCallback](std::exception_ptr error) mutable {
+
+        // Reattach, the callback comes from a different thread
+        JNIEnv *env2;
+        jboolean renderDetach = attach_jni_thread(theJVM, &env2, "Offline Thread");
+        if (renderDetach) {
+            mbgl::Log::Debug(mbgl::Event::JNI, "Attached.");
+        }
+
+        if (error) {
+            std::string message = mbgl::util::toString(error);
+            jni::CallMethod<void>(*env2, putCallback, *putOnErrorMethodId, std_string_to_jstring(env2, message));
+        } else {
+            jni::CallMethod<void>(*env2, putCallback, *putOnCompleteMethodId);
+        }
+
+        // Delete global refs and detach when we're done
+        jni::DeleteGlobalRef(*env2, jni::UniqueGlobalRef<jni::jobject>(putCallback));
+        detach_jni_thread(theJVM, &env2, renderDetach);
+    });
+}
+
 mbgl::OfflineRegion* getOfflineRegionPeer(JNIEnv *env, jni::jobject* offlineRegion_) {
     jlong offlineRegionPtr = jni::GetField<jlong>(*env, offlineRegion_, *offlineRegionPtrId);
     if (!offlineRegionPtr) {
@@ -1896,6 +1939,10 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         struct CreateOfflineRegionsCallback {
             static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback"; }
         };
+
+        struct PutTileCallback {
+            static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$PutTileCallback"; }
+        };
     };
 
     struct OfflineRegion {
@@ -1911,7 +1958,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(listOfflineRegions, "(JLcom/mapbox/mapboxsdk/offline/OfflineManager$ListOfflineRegionsCallback;)V"),
         MAKE_NATIVE_METHOD(createOfflineRegion, "(JLcom/mapbox/mapboxsdk/offline/OfflineRegionDefinition;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback;)V"),
-        MAKE_NATIVE_METHOD(setOfflineMapboxTileCountLimit, "(JJ)V")
+        MAKE_NATIVE_METHOD(setOfflineMapboxTileCountLimit, "(JJ)V"),
+        MAKE_NATIVE_METHOD(putTileWithUrlTemplate, "(JLjava/lang/String;FIII[BLcom/mapbox/mapboxsdk/offline/OfflineManager$PutTileCallback;)V")
     );
 
     jni::Class<OfflineManager::ListOfflineRegionsCallback> listOfflineRegionsCallbackClass = jni::Class<OfflineManager::ListOfflineRegionsCallback>::Find(env);
@@ -1921,6 +1969,10 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     jni::Class<OfflineManager::CreateOfflineRegionsCallback> createOfflineRegionCallbackClass = jni::Class<OfflineManager::CreateOfflineRegionsCallback>::Find(env);
     createOnCreateMethodId = &jni::GetMethodID(env, createOfflineRegionCallbackClass, "onCreate", "(Lcom/mapbox/mapboxsdk/offline/OfflineRegion;)V");
     createOnErrorMethodId = &jni::GetMethodID(env, createOfflineRegionCallbackClass, "onError", "(Ljava/lang/String;)V");
+
+    jni::Class<OfflineManager::PutTileCallback> putTileCallbackClass = jni::Class<OfflineManager::PutTileCallback>::Find(env);
+    putOnCompleteMethodId = &jni::GetMethodID(env, putTileCallbackClass, "onComplete", "()V");
+    putOnErrorMethodId = &jni::GetMethodID(env, putTileCallbackClass, "onError", "(Ljava/lang/String;)V");
 
     offlineRegionClass = &jni::FindClass(env, OfflineRegion::Name());
     offlineRegionClass = jni::NewGlobalRef(env, offlineRegionClass).release();

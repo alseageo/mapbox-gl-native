@@ -89,6 +89,11 @@ public class OfflineManager {
         void onError(String error);
     }
 
+    public interface PutTileCallback {
+        void onComplete();
+        void onError(String error);
+    }
+
     /*
      * Constructors
      */
@@ -307,6 +312,32 @@ public class OfflineManager {
         setOfflineMapboxTileCountLimit(mDefaultFileSourcePtr, limit);
     }
 
+    public void putTileWithUrlTemplate(
+        @NonNull String urlTemplate, @NonNull float pixelRatio, @NonNull int x, @NonNull int y,
+        @NonNull int z, @NonNull byte[] data, @NonNull final PutTileCallback callback) {
+        putTileWithUrlTemplate(mDefaultFileSourcePtr, urlTemplate, pixelRatio, x, y, z, data, new PutTileCallback() {
+            @Override
+            public void onComplete() {
+                getHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onComplete();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(final String error) {
+                getHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onError(error);
+                    }
+                });
+            }
+        });
+    }
+
 
     /*
      * Native methods
@@ -329,4 +360,7 @@ public class OfflineManager {
     private native void setOfflineMapboxTileCountLimit(
             long defaultFileSourcePtr, long limit);
 
+    private native void putTileWithUrlTemplate(
+            long defaultFileSourcePtr, String urlTemplate, float pixelRatio, int x,
+            int y, int z, byte[] data, PutTileCallback callback);
 }
