@@ -20,6 +20,36 @@ void OfflineManager::setOfflineMapboxTileCountLimit(jni::JNIEnv&, jni::jlong lim
     fileSource.setOfflineMapboxTileCountLimit(limit);
 }
 
+void OfflineManager::putTileWithUrlTemplate(jni::JNIEnv& env_,
+                            jni::String jUrlTemplate,
+                            jni::jfloat pixelRatio,
+                            jni::jint x,
+                            jni::jint y,
+                            jni::jint z,
+                            jni::Array<jni::jbyte> jData_,
+                            jni::Object<PutTileCallback> callback_) {
+    auto data = std::make_shared<std::string>(jData_.Length(env_), char());
+    jni::GetArrayRegion(env_, *jData_, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
+
+    mbgl::Resource resource = mbgl::Resource::tile(jni::Make<std::string>(env_, jUrlTemplate), pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
+    mbgl::Response response = mbgl::Response();
+    response.data = data;
+
+    fileSource.startPut(resource, response, [
+        //Ensure the object is not gc'd in the meanwhile
+        callback = std::shared_ptr<jni::jobject>(callback_.NewGlobalRef(env_).release()->Get(), GenericGlobalRefDeleter())
+    ](std::exception_ptr error) mutable {
+        // Reattach, the callback comes from a different thread
+        android::UniqueEnv env = android::AttachEnv();
+
+        if (error) {
+            PutTileCallback::onError(*env, jni::Object<PutTileCallback>(*callback), error);
+        } else {
+            PutTileCallback::onComplete(*env, jni::Object<PutTileCallback>(*callback));
+        }
+    });
+}
+
 void OfflineManager::listOfflineRegions(jni::JNIEnv& env_, jni::Object<FileSource> jFileSource_, jni::Object<ListOfflineRegionsCallback> callback_) {
     // list regions
     fileSource.listOfflineRegions([
@@ -81,6 +111,7 @@ jni::Class<OfflineManager> OfflineManager::javaClass;
 void OfflineManager::registerNative(jni::JNIEnv& env) {
     OfflineManager::ListOfflineRegionsCallback::registerNative(env);
     OfflineManager::CreateOfflineRegionCallback::registerNative(env);
+    OfflineManager::PutTileCallback::registerNative(env);
 
     javaClass = *jni::Class<OfflineManager>::Find(env).NewGlobalRef(env).release();
 
@@ -92,7 +123,8 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         "finalize",
         METHOD(&OfflineManager::setOfflineMapboxTileCountLimit, "setOfflineMapboxTileCountLimit"),
         METHOD(&OfflineManager::listOfflineRegions, "listOfflineRegions"),
-        METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"));
+        METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
+        METHOD(&OfflineManager::putTileWithUrlTemplate, "putTileWithUrlTemplate"));
 }
 
 // OfflineManager::ListOfflineRegionsCallback //
@@ -158,6 +190,28 @@ jni::Class<OfflineManager::CreateOfflineRegionCallback> OfflineManager::CreateOf
 
 void OfflineManager::CreateOfflineRegionCallback::registerNative(jni::JNIEnv& env) {
     javaClass = *jni::Class<OfflineManager::CreateOfflineRegionCallback>::Find(env).NewGlobalRef(env).release();
+}
+
+// OfflineManager::PutTileCallback //
+
+void OfflineManager::PutTileCallback::onError(jni::JNIEnv& env,
+                                                          jni::Object<OfflineManager::PutTileCallback> callback,
+                                                          std::exception_ptr error) {
+    static auto method = javaClass.GetMethod<void (jni::String)>(env, "onError");
+    std::string message = mbgl::util::toString(error);
+    callback.Call(env, method, jni::Make<jni::String>(env, message));
+}
+
+void OfflineManager::PutTileCallback::onComplete(jni::JNIEnv& env, jni::Object<OfflineManager::PutTileCallback> callback) {
+    // Trigger callback
+    static auto method = javaClass.GetMethod<void ()>(env, "onComplete");
+    callback.Call(env, method);
+}
+
+jni::Class<OfflineManager::PutTileCallback> OfflineManager::PutTileCallback::javaClass;
+
+void OfflineManager::PutTileCallback::registerNative(jni::JNIEnv& env) {
+    javaClass = *jni::Class<OfflineManager::PutTileCallback>::Find(env).NewGlobalRef(env).release();
 }
 
 } // namespace android
