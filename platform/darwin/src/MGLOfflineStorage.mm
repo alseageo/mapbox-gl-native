@@ -17,6 +17,7 @@
 #include <mbgl/util/string.hpp>
 #include <mbgl/storage/resource.hpp>
 #include <mbgl/storage/response.hpp>
+#include <mbgl/util/chrono.hpp>
 
 #include <memory>
 
@@ -382,6 +383,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Resource resource = mbgl::Resource::tile([urlTemplate UTF8String], pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
+    response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
     _mbglFileSource->startPut(resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -401,6 +403,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Resource resource = mbgl::Resource::tile([urlTemplate UTF8String], pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
+    response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
     _mbglFileSource->startPutRegionResource(*pack.mbglOfflineRegion, resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -420,6 +423,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, [url UTF8String]);
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
+    response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
     _mbglFileSource->startPut(resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -439,6 +443,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, [url UTF8String]);
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
+    response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
     _mbglFileSource->startPutRegionResource(*pack.mbglOfflineRegion, resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
