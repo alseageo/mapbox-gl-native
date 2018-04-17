@@ -183,7 +183,7 @@ public:
 
     void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
         try {
-            offlineDatabase.put(resource, response);
+            offlineDatabase->put(resource, response);
             callback({});
         } catch (...) {
             callback(std::current_exception());
@@ -196,7 +196,7 @@ public:
 
     void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response&  response, std::function<void (std::exception_ptr)> callback) {
         try {
-            offlineDatabase.putRegionResource(regionID, resource, response);
+            offlineDatabase->putRegionResource(regionID, resource, response);
             callback({});
         } catch (...) {
             callback(std::current_exception());
@@ -324,11 +324,11 @@ void DefaultFileSource::resume() {
 }
 
 void DefaultFileSource::startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
-    thread->invoke(&Impl::startPut, resource, response, callback);
+    impl->actor().invoke(&Impl::startPut, resource, response, callback);
 }
 
 void DefaultFileSource::startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
-    thread->invoke(&Impl::startPutRegionResource, region.getID(), resource, response, callback);
+    impl->actor().invoke(&Impl::startPutRegionResource, region.getID(), resource, response, callback);
 }
 
 // For testing only:
