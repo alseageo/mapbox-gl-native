@@ -384,6 +384,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
+    response.modified = mbgl::util::now();
     _mbglFileSource->startPut(resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -404,6 +405,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
+    response.modified = mbgl::util::now();
     _mbglFileSource->startPutRegionResource(*pack.mbglOfflineRegion, resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -424,6 +426,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
+    response.modified = mbgl::util::now();
     _mbglFileSource->startPut(resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
@@ -444,6 +447,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     mbgl::Response response = mbgl::Response();
     response.data = std::make_shared<std::string>(static_cast<const char*>(data.bytes), data.length);
     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365 * 10);
+    response.modified = mbgl::util::now();
     _mbglFileSource->startPutRegionResource(*pack.mbglOfflineRegion, resource, response, [&, completion](std::exception_ptr exception) {
         NSError *error;
         if (exception) {
